@@ -5,7 +5,6 @@ import Address from "../components/Address"
 function Home(){
     const [addresses, setAddresses] = useState([]);
     const [content, setContent] = useState([]);
-    // const [title, setTitle] = useState([]);
 
     useEffect(() => {
         getAddresses();
@@ -17,39 +16,45 @@ function Home(){
             .then((res) => res.data)
             .then((data) => { setAddresses(data); console.log(data) })
             .catch((err) => alert(err));
-    }
+    };
 
     const deleteAddress = (id) => {
         api.delete(`/api/addresses/delete/${id}/`).then((res) => {
             if(res.status === 204) alert("Address deleted!")
             else alert("Failed to delete Address.")
+            getAddresses();
         }).catch((error) => alert(error))
-        getAddresses();
-    }
+    };
 
     const createAddress = (e) => {
         e.preventDefault()
-        api.post("/api/addresses/", { content }).then((res) => {
-            if(res.status === 201) alert("Address added!")
-            else alert("Failed to add address.")
-        }).catch((err) => alert(err))
-        getAddresses();
-    }
-    return <div>
+        api
+            .post("/api/addresses/", { content })
+            .then((res) => {
+                if(res.status === 201) alert("Address added!");
+                else alert("Failed to add address.");
+                getAddresses();
+            })
+            .catch((err) => alert(err))
+            
+    };
+    return( <div>
         <div>
-            <h2>Addresses</h2>
+            <h2>Stored Addresses</h2>
             {addresses.map((address) => (
                     <Address address={address} onDelete={deleteAddress} key={address.id} />
                 ))}
         </div>
-        <h2>Submit Address</h2>
+        <h2>Submit Ethereum Address for Analysis</h2>
         <form onSubmit={createAddress}>
-                <label htmlFor="address">Address:</label>
+                <label htmlFor="content">Address:</label>
                 <br />
                 <input
                     type="text"
-                    id="address"
-                    name="address"
+                    maxlength="42"
+                    minlength="42"
+                    id="content"
+                    name="content"
                     required
                     onChange={(e) => setContent(e.target.value)}
                     value={content}
@@ -58,6 +63,7 @@ function Home(){
                 <input type="submit" value="Submit"></input>
             </form>
     </div>
+    )
 }
 
 export default Home
