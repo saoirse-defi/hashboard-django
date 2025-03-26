@@ -18,5 +18,5 @@ class UserSerializer(serializers.ModelSerializer):
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = ["id", "content", "created_at", "author"]
+        fields = '__all__'
         extra_kwargs = {"author": {"read_only": True}}

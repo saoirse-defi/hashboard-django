@@ -7,6 +7,7 @@ function Address({ address, onDelete }) {
         <div className="address-container">
             <p className="address-content">{address.content}</p>
             <p className="address-date">Date: {formattedDate}</p>
+            <p className="address-balance">Eth: {address.etherscan_data}</p>
             <button className="delete-button" onClick={() => onDelete(address.id)}>
                 Delete
             </button>
