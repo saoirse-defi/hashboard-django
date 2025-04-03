@@ -37,9 +37,7 @@ def get_eth_balance(request):
 
     if not addressId:
         return Response({'error': 'addressId is required'}, status=status.HTTP_400_BAD_REQUEST)
-
     etherscan_api_key = os.getenv('etherscan_api_key') # Replace with your actual Etherscan API key.
-
     try:
         etherscan_api_url = f'https://api.etherscan.io/api?module=account&action=balance&address={addressId}&tag=latest&apikey={etherscan_api_key}'
         response = requests.get(etherscan_api_url)
@@ -62,7 +60,7 @@ def get_eth_balance(request):
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
-def save_data(request):
+def save_address(request):
     try:
         serializer = AddressSerializer(data=request.data)
         if serializer.is_valid():
@@ -74,4 +72,16 @@ def save_data(request):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception("Error saving address:")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_addresses(request):
+    try:
+        addresses = Address.objects.filter(author=request.user)
+        serializer = AddressSerializer(addresses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.exception("Error retrieving addresses:")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
