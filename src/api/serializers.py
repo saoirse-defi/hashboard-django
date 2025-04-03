@@ -19,4 +19,4 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = '__all__'
-        extra_kwargs = {"author": {"read_only": True}}
+        # extra_kwargs = {"author": {"read_only": True}}

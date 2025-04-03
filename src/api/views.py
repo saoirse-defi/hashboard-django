@@ -2,33 +2,18 @@ from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import generics
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
 from .serializers import UserSerializer, AddressSerializer
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Address
+import logging
+import requests
 
-class AddressListCreate(generics.ListCreateAPIView):
-    serializer_class = AddressSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Address.objects.filter(author=user)
-
-    def perform_create(self, serializer):
-        if serializer.is_valid():
-            serializer.save(author=self.request.user)
-        else:
-            print(serializer.errors)
-
-class AddressDelete(generics.DestroyAPIView):
-    serializer_class = AddressSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Address.objects.filter(author=user)
+logger = logging.getLogger(__name__)
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -36,11 +21,31 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 @api_view(['POST'])
-def address_etherscan_update(request, address_id):
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_eth_balance(request):
+    addressId = request.data.get('addressId')
+
+    if not addressId:
+        return Response({'error': 'addressId is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    etherscan_api_key = '1ZFW8WFH53U5DMBIDMGSFMEG94JMDJJUP9' # Replace with your actual Etherscan API key.
+
     try:
-        address = Address.objects.get(pk=address_id)
-        address.etherscan_data = request.data['etherscan_data']
-        address.save()
-        return Response(status=status.HTTP_200_OK)
-    except Address.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+        etherscan_api_url = f'https://api.etherscan.io/api?module=account&action=balance&address={addressId}&tag=latest&apikey={etherscan_api_key}'
+        response = requests.get(etherscan_api_url)
+        response.raise_for_status()
+        data = response.json()
+        return Response(data, status=status.HTTP_200_OK)
+
+    except InvalidToken as e:
+        logger.error(f"Invalid JWT Token: {e}")
+        return Response({"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
+    except AuthenticationFailed as e:
+        logger.error(f"Authentication Failed: {e}")
+        return Response({"error": "Authentication failed"}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        logger.exception("An unexpected error occurred:")
+        return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except ValueError:
+        return Response({'error': 'Invalid JSON response from Etherscan API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
