@@ -22,7 +22,18 @@ function ExternalApiRequest() {
     };
 
     const handleGetBalance = () => {
-        // e.preventDefault();
+        const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+
+        if (!addressId || !ethAddressRegex.test(addressId)) {
+            console.error("Invalid Ethereum address format provided:", addressId);
+            // Set an error state to inform the user in the UI
+            setError("Not an Ethereum address, try again!");
+            // Optional: Clear any previously displayed balance
+            setBalance(null);
+            // Stop the function here - do not proceed with API calls
+            return;
+        }
+        console.log("Address format valid. Proceeding...");
         console.log("Retrieved Token:", token);
         console.log("Sending data:", addressId);
         axios.post('http://127.0.0.1:8000/api/save-address/', { address: addressId }, {
