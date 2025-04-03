@@ -6,7 +6,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = '__all__'
-        read_only_fields = ['auther']
+        read_only_fields = ['created_at', 'author']
         # extra_kwargs = {"author": {"read_only": True}}
 
 class UserSerializer(serializers.ModelSerializer):
