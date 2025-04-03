@@ -24,39 +24,45 @@ function ExternalApiRequest() {
     const handleGetBalance = () => {
         // e.preventDefault();
         console.log("Retrieved Token:", token);
-        // console.log("Sending data:", addressId);
-        // axios.post('http://127.0.0.1:8000/api/save-data/', addressId, { //Here is the call.
-        //     headers: {
-        //         Authorization: `Bearer ${token}`,
-        //     },
-        // })
-        // .catch((error) => {
-        //     console.error('Error saving address:', error);
-        //     setError('An error occurred.');
-        // });
-        axios.post('http://127.0.0.1:8000/api/eth-balance/', {addressId}, {
+        console.log("Sending data:", addressId);
+        axios.post('http://127.0.0.1:8000/api/save-address/', { address: addressId }, {
             headers: {
-                Authorization: `Bearer ${token}`, // Include the token
-            }, 
-        }) // Replace with your Django API URL
-            .then((response) => {
-                if (response.data.status === '1') {
-                    console.log(response.data)
-                    // Etherscan returns balance as a string, convert to ether and display.
-                    const balanceInWei = response.data.result;
-                    const balanceInEther = balanceInWei / 10**18;
-                    setBalance(balanceInEther);
-                    setError(null);
-                } else {
-                    setError(response.data.result); //Etherscan returns error message in result.
+                Authorization: `Bearer ${token}`,
+            },
+        })
+        .then((response) => {
+            if (response.status === 201) {
+                axios.post('http://127.0.0.1:8000/api/eth-balance/', { addressId }, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                })
+                .then((response) => {
+                    if (response.data.status === '1') {
+                        console.log(response.data);
+                        const balanceInWei = response.data.result;
+                        const balanceInEther = balanceInWei / 10**18;
+                        setBalance(balanceInEther);
+                        setError(null);
+                    } else {
+                        setError(response.data.result);
+                        setBalance(null);
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error fetching balance:', error);
+                    setError('An error occurred fetching the balance.');
                     setBalance(null);
-                }
-            })
-            .catch((error) => {
-                console.error('Error fetching balance:', error);
-                setError('An error occurred.');
-                setBalance(null);
-            });
+                });
+            } else {
+                console.error('Error saving address: Unexpected status code', response.status);
+                setError('An error occurred while saving the address.');
+            }
+        })
+        .catch((error) => {
+            console.error('Error saving address:', error);
+            setError('An error occurred while saving the address.');
+        });
     };
 
     return (
