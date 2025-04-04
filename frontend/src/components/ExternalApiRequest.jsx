@@ -5,96 +5,105 @@ import axios from 'axios';
 import { ACCESS_TOKEN } from "../constants";
 
 function ExternalApiRequest() {
-    const [addresses, setAddresses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [addressId, setAddressId] = useState('');
-    const [balance, setBalance] = useState(null);
-    const [error, setError] = useState(null);
-    const [postSuccess, setPostSuccess]  = useState(false);
+    const [state, setState] = useState({
+        addresses: [],
+        loading: true,
+        addressId: '',
+        balance: null,
+        error: null,
+        postSuccess: false,
+      });
 
     const token = localStorage.getItem(ACCESS_TOKEN);
 
-    const getUserAddresses = async () => {
-        setLoading(true);
-        try{
-            const response = await axios.get('http://127.0.0.1:8000/api/user-addresses/', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            if (response.status >= 200 && response.status < 300) {
-                setAddresses(response.data);
-                setLoading(false);
-            }else {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
-        }
-        catch (e) {
-            console.error("Error fetching items:", e);
-            setError("Failed to load items.");
-          } finally {
-            setLoading(false);
+    const apiRequest = async (method, url, data = null) => {
+        try {
+          const response = await axios({
+            method,
+            url,
+            data,
+            headers: { Authorization: `Bearer ${token}` },
+          });
+    
+          if (response.status < 200 || response.status >= 300) {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
+    
+          return response.data;
+        } catch (error) {
+          console.error('API request error:', error);
+          setState((prevState) => ({
+            ...prevState,
+            error: 'An error occurred.',
+            loading: false,
+          }));
+          throw error;
+        }
+      };
+
+    const getUserAddresses = async () => {
+        setState((prevState) => ({ ...prevState, loading: true }));
+        try {
+        const data = await apiRequest('get', 'http://127.0.0.1:8000/api/user-addresses/');
+        setState((prevState) => ({
+            ...prevState,
+            addresses: data,
+            loading: false,
+        }));
+        } catch (error) {
+        setState((prevState) => ({ ...prevState, loading: false }));
+        console.error('Error fetching balance:', error);
+        }
     }
 
     const handleInputChange = (e) => {
         console.log("Event:", e);
-        setAddressId(e.target.value);
-        // setFormData({ ...formData, [e.target.name]: e.target.value });
-        // console.log("Updated formData:", formData);
+        setState((prevState) => ({ ...prevState, addressId: e.target.value }));
     };
 
-    const handleGetBalance = () => {
+    const handleGetBalance = async () => {
         const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
 
-        if (!addressId || !ethAddressRegex.test(addressId)) {
-            console.error("Invalid Ethereum address format provided:", addressId);
-            setError("Not an Ethereum address, try again!");
-            setBalance(null);
+        if (!state.addressId || !ethAddressRegex.test(state.addressId)) {
+            setState((prevState) => ({
+              ...prevState,
+              error: 'Not an Ethereum address, try again!',
+              balance: null,
+            }));
             return;
         }
         console.log("Address format valid. Proceeding...");
         console.log("Retrieved Token:", token);
-        console.log("Sending data:", addressId);
-        axios.post('http://127.0.0.1:8000/api/save-address/', { address: addressId }, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        })
-        .then((response) => {
-            if (response.status === 201) {
-                axios.post('http://127.0.0.1:8000/api/eth-balance/', { addressId }, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                })
-                .then((response) => {
-                    if (response.data.status === '1') {
-                        console.log(response.data);
-                        const balanceInWei = response.data.result;
-                        const balanceInEther = balanceInWei / 10**18;
-                        setBalance(balanceInEther);
-                        setError(null);
-                        setPostSuccess(true);
-                    } else {
-                        setError(response.data.result);
-                        setBalance(null);
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error fetching balance:', error);
-                    setError('An error occurred fetching the balance.');
-                    setBalance(null);
-                });
+        console.log("Sending data:", state.addressId);
+
+        try {
+            await apiRequest('post', 'http://127.0.0.1:8000/api/save-address/', { address: state.addressId });
+            const balanceData = await apiRequest('post', 'http://127.0.0.1:8000/api/eth-balance/', {
+              addressId: state.addressId,
+            });
+      
+            if (balanceData.status === '1') {
+              setState((prevState) => ({
+                ...prevState,
+                balance: balanceData.result / 10 ** 18,
+                error: null,
+                postSuccess: true,
+              }));
             } else {
-                console.error('Error saving address: Unexpected status code', response.status);
-                setError('An error occurred while saving the address.');
+              setState((prevState) => ({
+                ...prevState,
+                error: balanceData.result,
+                balance: null,
+              }));
             }
-        })
-        .catch((error) => {
-            console.error('Error saving address:', error);
-            setError('An error occurred while saving the address.');
-        });
+          } catch (error) {
+            setState((prevState) => ({
+              ...prevState,
+              error: 'An error occurred.',
+              balance: null,
+            }));
+            console.error('Error fetching balance:', error);
+        }
     };
 
     useEffect(() => {
@@ -102,18 +111,21 @@ function ExternalApiRequest() {
       }, []);
 
     useEffect(() => {
-        if(postSuccess){
+        if(state.postSuccess){
             getUserAddresses();
-            // setPostSuccess(false);
+            // setState((prevState) => ({
+            //     ...prevState,
+            //     postSuccess: false,
+            //   }));
         }
-    }, [postSuccess]);
+    }, [state.postSuccess]);
 
-    if (loading) {
+    if (state.loading) {
         return <div>Loading addresses...</div>;
     }
 
-    if (error) {
-        return <div>{error}</div>;
+    if (state.error) {
+        return <div>{state.error}</div>;
     }
 
     return (
@@ -121,23 +133,23 @@ function ExternalApiRequest() {
         <div>
             <h2>Stored Eth Addresses</h2>
             <ul>
-                {addresses.map((address) => (
+                {state.addresses.map((address) => (
                     <li key={address.id}>
                         {address.address}
                     </li>
                 ))}
             </ul>
-            {addresses.length === 0 && <div>No Addresses stored.</div>}
+            {state.addresses.length === 0 && <div>No Addresses stored.</div>}
         </div>
         <div>
             <h2>Submit Ethereum Address for Analysis</h2>
-            <input type="text" value={addressId} onChange={handleInputChange} placeholder="Ethereum Address" />
+            <input type="text" value={state.addressId} onChange={handleInputChange} placeholder="Ethereum Address" />
             <button onClick={handleGetBalance}>Get Balance</button>
             
 
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+            {state.error && <p style={{ color: 'red' }}>{state.error}</p>}
 
-            {balance !== null && <p>Balance: {balance} ETH</p>}
+            {state.balance !== null && <p>Balance: {state.balance} ETH</p>}
         </div>
         </div>
         
