@@ -1,18 +1,41 @@
 // src/components/EthBalance.js
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { ACCESS_TOKEN } from "../constants";
 
 function ExternalApiRequest() {
-    // const [formData, setFormData] = useState({
-    //     content: '', //Address content
-    // });
+    const [addresses, setAddresses] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [addressId, setAddressId] = useState('');
     const [balance, setBalance] = useState(null);
     const [error, setError] = useState(null);
+    const [postSuccess, setPostSuccess]  = useState(false);
 
     const token = localStorage.getItem(ACCESS_TOKEN);
+
+    const getUserAddresses = async () => {
+        setLoading(true);
+        try{
+            const response = await axios.get('http://127.0.0.1:8000/api/user-addresses/', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            if (response.status >= 200 && response.status < 300) {
+                setAddresses(response.data);
+                setLoading(false);
+            }else {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+        }
+        catch (e) {
+            console.error("Error fetching items:", e);
+            setError("Failed to load items.");
+          } finally {
+            setLoading(false);
+          }
+    }
 
     const handleInputChange = (e) => {
         console.log("Event:", e);
@@ -26,11 +49,8 @@ function ExternalApiRequest() {
 
         if (!addressId || !ethAddressRegex.test(addressId)) {
             console.error("Invalid Ethereum address format provided:", addressId);
-            // Set an error state to inform the user in the UI
             setError("Not an Ethereum address, try again!");
-            // Optional: Clear any previously displayed balance
             setBalance(null);
-            // Stop the function here - do not proceed with API calls
             return;
         }
         console.log("Address format valid. Proceeding...");
@@ -55,6 +75,7 @@ function ExternalApiRequest() {
                         const balanceInEther = balanceInWei / 10**18;
                         setBalance(balanceInEther);
                         setError(null);
+                        setPostSuccess(true);
                     } else {
                         setError(response.data.result);
                         setBalance(null);
@@ -76,7 +97,38 @@ function ExternalApiRequest() {
         });
     };
 
+    useEffect(() => {
+        getUserAddresses();
+      }, []);
+
+    useEffect(() => {
+        if(postSuccess){
+            getUserAddresses();
+            // setPostSuccess(false);
+        }
+    }, [postSuccess]);
+
+    if (loading) {
+        return <div>Loading addresses...</div>;
+    }
+
+    if (error) {
+        return <div>{error}</div>;
+    }
+
     return (
+        <div>
+        <div>
+            <h2>Stored Eth Addresses</h2>
+            <ul>
+                {addresses.map((address) => (
+                    <li key={address.id}>
+                        {address.address}
+                    </li>
+                ))}
+            </ul>
+            {addresses.length === 0 && <div>No Addresses stored.</div>}
+        </div>
         <div>
             <h2>Submit Ethereum Address for Analysis</h2>
             <input type="text" value={addressId} onChange={handleInputChange} placeholder="Ethereum Address" />
@@ -87,6 +139,8 @@ function ExternalApiRequest() {
 
             {balance !== null && <p>Balance: {balance} ETH</p>}
         </div>
+        </div>
+        
     );
 }
 

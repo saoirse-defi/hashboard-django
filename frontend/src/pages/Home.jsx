@@ -9,9 +9,9 @@ function Home(){
 
     return(
     <div>
-        <div>
+        {/* <div>
             <UserAddresses />
-        </div>
+        </div> */}
         <div>
             <ExternalApiRequest />
         </div>
